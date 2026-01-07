@@ -22,6 +22,7 @@ from .const import (
     CONF_SUBSCRIPTION_ID,
     CONF_VIRTUAL_BATTERY_ID,
     CONF_VIRTUAL_DEVICE_ID,
+    CONF_WATER_HEATER_ID,
     DOMAIN,
     LOGGER,
 )
@@ -63,6 +64,7 @@ class MyLightSystemsFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
                     CONF_MASTER_ID: device_ids.master_id,
                     CONF_MASTER_REPORT_PERIOD: device_ids.master_report_period,
                     CONF_MASTER_RELAY_ID: device_ids.master_relay_id,
+                    CONF_WATER_HEATER_ID: device_ids.water_heater_id,
                 }
 
                 await self.async_set_unique_id(str(user_profile.subscription_id))

@@ -128,7 +128,6 @@ class MyLightApiClient:
                 raise UnauthorizedError()
 
         model = InstallationDevices()
-
         for device in response["devices"]:
             if device["type"] == "vrt":
                 model.virtual_device_id = device["id"]
@@ -138,9 +137,10 @@ class MyLightApiClient:
             if device["type"] == "mst":
                 model.master_id = device["id"]
                 model.master_report_period = device["reportPeriod"]
+            if device["type"] == "gmd" and device["deviceTypeId"] == "water_heater":
+                model.water_heater_id = device["id"]                    
             if device["type"] == "sw":
                 model.master_relay_id = device["id"]
-
         return model
 
     async def async_get_measures_total(self, auth_token: str, phase: str, device_id: str) -> list[Measure]:
@@ -160,7 +160,6 @@ class MyLightApiClient:
                 raise UnauthorizedError()
 
         measures: list[Measure] = []
-
         for value in response["measure"]["values"]:
             measures.append(Measure(value["type"], value["value"], value["unit"]))
 

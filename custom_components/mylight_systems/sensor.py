@@ -129,6 +129,17 @@ MYLIGHT_SENSORS: tuple[MyLightSensorEntityDescription, ...] = (
         device_class=SensorDeviceClass.ENERGY,
         value_fn=lambda data: _calculate_grid_returned_energy(data),
     ),
+    MyLightSensorEntityDescription(
+        key="water_heater_energy",
+        name="Water heater energy",
+        icon="mdi:water-boiler",
+        native_unit_of_measurement=UnitOfEnergy.WATT_HOUR,
+        state_class=SensorStateClass.TOTAL_INCREASING,
+        device_class=SensorDeviceClass.ENERGY,
+        value_fn=lambda data: round(data.water_heater_energy.value / 36e2, 2)
+        if data.water_heater_energy is not None
+        else 0,        
+    ),
 )
 
 

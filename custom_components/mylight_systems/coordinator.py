@@ -27,6 +27,7 @@ from .const import (
     CONF_MASTER_RELAY_ID,
     CONF_VIRTUAL_BATTERY_ID,
     CONF_VIRTUAL_DEVICE_ID,
+    CONF_WATER_HEATER_ID,
     DOMAIN,
     LOGGER,
     SCAN_INTERVAL_IN_MINUTES,
@@ -46,6 +47,7 @@ class MyLightSystemsCoordinatorData(NamedTuple):
     green_energy: Measure
     battery_state: Measure
     master_relay_state: str | None
+    water_heater_energy: Measure
 
 
 # https://developers.home-assistant.io/docs/integration_fetching_data#coordinated-single-api-poll-for-data-for-all-entities
@@ -79,12 +81,23 @@ class MyLightSystemsDataUpdateCoordinator(DataUpdateCoordinator):
             device_id = self.config_entry.data[CONF_VIRTUAL_DEVICE_ID]
             virtual_battery_id = self.config_entry.data[CONF_VIRTUAL_BATTERY_ID]
             master_relay_id = self.config_entry.data.get(CONF_MASTER_RELAY_ID, None)
+            water_heater_id = self.config_entry.data[CONF_WATER_HEATER_ID]
 
             await self.authenticate_user(email, password)
 
             result = await self.client.async_get_measures_total(self.__auth_token, grid_type, device_id)
 
+<<<<<<< HEAD
             battery_state = await self.client.async_get_battery_state(self.__auth_token, virtual_battery_id)
+=======
+            result_water_heater = await self.client.async_get_measures_total(
+                self.__auth_token, grid_type, water_heater_id
+            )
+
+            battery_state = await self.client.async_get_battery_state(
+                self.__auth_token, virtual_battery_id
+            )
+>>>>>>> ed71ecf (Récupération du code de Romain)
 
             master_relay_state = None
             if master_relay_id is not None:
@@ -101,6 +114,7 @@ class MyLightSystemsDataUpdateCoordinator(DataUpdateCoordinator):
                 green_energy=self.find_measure_by_type(result, "green_energy"),
                 battery_state=battery_state,
                 master_relay_state=master_relay_state,
+                water_heater_energy=self.find_measure_by_type(result_water_heater, "energy"),
             )
 
             self._data = data
