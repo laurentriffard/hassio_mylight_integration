@@ -87,9 +87,6 @@ class MyLightSystemsDataUpdateCoordinator(DataUpdateCoordinator):
 
             result = await self.client.async_get_measures_total(self.__auth_token, grid_type, device_id)
 
-<<<<<<< HEAD
-            battery_state = await self.client.async_get_battery_state(self.__auth_token, virtual_battery_id)
-=======
             result_water_heater = await self.client.async_get_measures_total(
                 self.__auth_token, grid_type, water_heater_id
             )
@@ -97,7 +94,6 @@ class MyLightSystemsDataUpdateCoordinator(DataUpdateCoordinator):
             battery_state = await self.client.async_get_battery_state(
                 self.__auth_token, virtual_battery_id
             )
->>>>>>> ed71ecf (Récupération du code de Romain)
 
             master_relay_state = None
             if master_relay_id is not None:
