@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import voluptuous as vol
-from homeassistant import config_entries
+from homeassistant.config_entries import ConfigFlow, ConfigFlowResult
 from homeassistant.const import CONF_EMAIL, CONF_PASSWORD, CONF_URL
 from homeassistant.helpers import selector
 from homeassistant.helpers.aiohttp_client import async_create_clientsession
@@ -28,16 +28,15 @@ from .const import (
 )
 
 
-class MyLightSystemsFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
+class MyLightSystemsFlowHandler(ConfigFlow, domain=DOMAIN):
     """Config flow for MyLightSystems."""
 
     VERSION = 1
-    CONNECTION_CLASS = config_entries.CONN_CLASS_CLOUD_POLL
 
     async def async_step_user(
         self,
         user_input: dict | None = None,
-    ) -> config_entries.FlowResult:
+    ) -> ConfigFlowResult:
         """Handle a flow initialized by the user."""
         _errors = {}
         if user_input is not None:
@@ -109,10 +108,61 @@ class MyLightSystemsFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
             errors=_errors,
         )
 
+    async def async_step_reauth(
+        self,
+        entry_data: dict,
+    ) -> ConfigFlowResult:
+        """Handle reauth when credentials expire."""
+        return await self.async_step_reauth_confirm()
+
+    async def async_step_reauth_confirm(
+        self,
+        user_input: dict | None = None,
+    ) -> ConfigFlowResult:
+        """Handle reauth confirmation with new credentials."""
+        _errors = {}
+        entry = self._get_reauth_entry()
+
+        if user_input is not None:
+            try:
+                api_client = MyLightApiClient(
+                    base_url=entry.data[CONF_URL],
+                    session=async_create_clientsession(self.hass),
+                )
+
+                await api_client.async_login(entry.data[CONF_EMAIL], user_input[CONF_PASSWORD])
+
+                new_data = entry.data.copy()
+                new_data[CONF_PASSWORD] = user_input[CONF_PASSWORD]
+
+                return self.async_update_reload_and_abort(entry, data=new_data)
+
+            except InvalidCredentialsError as exception:
+                LOGGER.warning(exception)
+                _errors["base"] = "auth"
+            except CommunicationError as exception:
+                LOGGER.error(exception)
+                _errors["base"] = "connection"
+            except MyLightSystemsError as exception:
+                LOGGER.exception(exception)
+                _errors["base"] = "unknown"
+
+        return self.async_show_form(
+            step_id="reauth_confirm",
+            data_schema=vol.Schema(
+                {
+                    vol.Required(CONF_PASSWORD): selector.TextSelector(
+                        selector.TextSelectorConfig(type=selector.TextSelectorType.PASSWORD),
+                    ),
+                }
+            ),
+            errors=_errors,
+        )
+
     async def async_step_reconfigure(
         self,
         user_input: dict | None = None,
-    ) -> config_entries.FlowResult:
+    ) -> ConfigFlowResult:
         """Handle reconfiguration of an existing entry."""
         _errors = {}
         entry = self.hass.config_entries.async_get_entry(self.context["entry_id"])

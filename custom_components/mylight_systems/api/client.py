@@ -1,10 +1,11 @@
-"""WeatherFlow Data Wrapper."""
+"""MyLight Systems API client."""
 
 from __future__ import annotations
 
 import asyncio
 import logging
 import socket
+from typing import Any
 
 import aiohttp
 import async_timeout
@@ -46,7 +47,7 @@ class MyLightApiClient:
         path: str,
         params: dict | None = None,
         headers: dict | None = None,
-    ) -> any:
+    ) -> Any:
         """Execute request."""
         try:
             async with async_timeout.timeout(DEFAULT_TIMEOUT_IN_SECONDS):
@@ -133,7 +134,6 @@ class MyLightApiClient:
                 model.virtual_device_id = device["id"]
             if device["type"] == "bat":
                 model.virtual_battery_id = device["id"]
-                model.virtual_battery_capacity = device["batteryCapacity"]
             if device["type"] == "mst":
                 model.master_id = device["id"]
                 model.master_report_period = device["reportPeriod"]

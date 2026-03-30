@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import NamedTuple
 
 from homeassistant.config_entries import ConfigEntry
@@ -37,21 +37,21 @@ from .const import (
 class MyLightSystemsCoordinatorData(NamedTuple):
     """Data returned by the coordinator."""
 
-    produced_energy: Measure
-    grid_energy: Measure
-    grid_energy_without_battery: Measure
-    autonomy_rate: Measure
-    self_conso: Measure
-    msb_charge: Measure
-    msb_discharge: Measure
-    green_energy: Measure
-    battery_state: Measure
+    produced_energy: Measure | None
+    grid_energy: Measure | None
+    grid_energy_without_battery: Measure | None
+    autonomy_rate: Measure | None
+    self_conso: Measure | None
+    msb_charge: Measure | None
+    msb_discharge: Measure | None
+    green_energy: Measure | None
+    battery_state: Measure | None
     master_relay_state: str | None
     water_heater_energy: Measure
 
 
 # https://developers.home-assistant.io/docs/integration_fetching_data#coordinated-single-api-poll-for-data-for-all-entities
-class MyLightSystemsDataUpdateCoordinator(DataUpdateCoordinator):
+class MyLightSystemsDataUpdateCoordinator(DataUpdateCoordinator[MyLightSystemsCoordinatorData]):
     """Class to manage fetching data from the API."""
 
     config_entry: ConfigEntry
@@ -62,6 +62,7 @@ class MyLightSystemsDataUpdateCoordinator(DataUpdateCoordinator):
         self,
         hass: HomeAssistant,
         client: MyLightApiClient,
+        config_entry: ConfigEntry,
     ) -> None:
         """Initialize."""
         self.client = client
@@ -70,6 +71,7 @@ class MyLightSystemsDataUpdateCoordinator(DataUpdateCoordinator):
             logger=LOGGER,
             name=DOMAIN,
             update_interval=timedelta(minutes=SCAN_INTERVAL_IN_MINUTES),
+            config_entry=config_entry,
         )
 
     async def _async_update_data(self) -> MyLightSystemsCoordinatorData:
@@ -126,10 +128,10 @@ class MyLightSystemsDataUpdateCoordinator(DataUpdateCoordinator):
 
     async def authenticate_user(self, email, password):
         """Reauthenticate user if needed."""
-        if self.__auth_token is None or self.__token_expiration is None or self.__token_expiration < datetime.utcnow():
+        if self.__auth_token is None or self.__token_expiration is None or self.__token_expiration < datetime.now(UTC):
             result = await self.client.async_login(email, password)
             self.__auth_token = result.auth_token
-            self.__token_expiration = datetime.utcnow() + timedelta(hours=2)
+            self.__token_expiration = datetime.now(UTC) + timedelta(hours=2)
 
     async def turn_on_master_relay(self):
         """Turn on master relay."""

@@ -8,12 +8,14 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from .api.client import DEFAULT_BASE_URL, MyLightApiClient
-from .const import DATA_COORDINATOR, DOMAIN, PLATFORMS
+from .const import LOGGER, PLATFORMS
 from .coordinator import MyLightSystemsDataUpdateCoordinator
+
+type MyLightConfigEntry = ConfigEntry[MyLightSystemsDataUpdateCoordinator]
 
 
 # https://developers.home-assistant.io/docs/config_entries_index/#setting-up-an-entry
-async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+async def async_setup_entry(hass: HomeAssistant, entry: MyLightConfigEntry) -> bool:
     """Set up this integration using UI."""
     session = async_get_clientsession(hass)
 
@@ -21,12 +23,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         base_url=entry.data.get(CONF_URL, DEFAULT_BASE_URL),
         session=session,
     )
-    local_coordinator = MyLightSystemsDataUpdateCoordinator(hass=hass, client=client)
-
-    hass.data.setdefault(DOMAIN, {})[entry.entry_id] = {DATA_COORDINATOR: local_coordinator}
+    coordinator = MyLightSystemsDataUpdateCoordinator(hass=hass, client=client, config_entry=entry)
 
     # https://developers.home-assistant.io/docs/integration_fetching_data#coordinated-single-api-poll-for-data-for-all-entities
-    await local_coordinator.async_config_entry_first_refresh()
+    await coordinator.async_config_entry_first_refresh()
+
+    entry.runtime_data = coordinator
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     entry.async_on_unload(entry.add_update_listener(async_reload_entry))
@@ -34,14 +36,23 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     return True
 
 
-async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+async def async_unload_entry(hass: HomeAssistant, entry: MyLightConfigEntry) -> bool:
     """Handle removal of an entry."""
-    if unloaded := await hass.config_entries.async_unload_platforms(entry, PLATFORMS):
-        hass.data[DOMAIN].pop(entry.entry_id)
-    return unloaded
+    return await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
 
 
-async def async_reload_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
+async def async_reload_entry(hass: HomeAssistant, entry: MyLightConfigEntry) -> None:
     """Reload config entry."""
     await async_unload_entry(hass, entry)
     await async_setup_entry(hass, entry)
+
+
+async def async_migrate_entry(hass: HomeAssistant, entry: MyLightConfigEntry) -> bool:
+    """Migrate old entry data to the current version."""
+    LOGGER.debug("Migrating from version %s", entry.version)
+
+    if entry.version > 1:
+        return False
+
+    LOGGER.debug("Migration to version %s successful", entry.version)
+    return True

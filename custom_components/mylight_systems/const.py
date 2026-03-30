@@ -10,8 +10,7 @@ LOGGER: Logger = getLogger(__package__)
 NAME = "MyLight Systems"
 DOMAIN = "mylight_systems"
 PLATFORMS = [Platform.SENSOR, Platform.SWITCH]
-VERSION = "0.2.0-laurent"
-COORDINATOR = "coordinator"
+VERSION = "0.3.0wh"
 ATTRIBUTION = "Data provided by https://www.mylight-systems.com/"
 SCAN_INTERVAL_IN_MINUTES = 5
 
@@ -24,6 +23,3 @@ CONF_SUBSCRIPTION_ID = "subscription_id"
 CONF_GRID_TYPE = "grid_type"
 CONF_MASTER_RELAY_ID = "master_relay_id"
 CONF_WATER_HEATER_ID = "water_heater_id"
-
-# Data
-DATA_COORDINATOR = "coordinator"
