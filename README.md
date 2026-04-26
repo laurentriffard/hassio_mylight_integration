@@ -1,5 +1,7 @@
 # MyLight Systems
 
+🌐 **English** | [Français](README.fr.md) | [Português](README.pt.md) | [Deutsch](README.de.md) | [Español](README.es.md)
+
 [![GitHub Release][releases-shield]][releases]
 [![GitHub Activity][commits-shield]][commits]
 [![License][license-shield]](LICENSE)
@@ -10,24 +12,33 @@
 _Integration to integrate with [MyLight Systems][mylight_systems]._
 
 > [!Warning]
-> 
+>
 > This integration currently only supports the **MyHome** customer area. The **MyLight150** customer area is not yet supported.
 
 **This integration will set up the following platforms.**
 
-| Platform                                        | Description                                                    | Unit | Implemented        |
-|-------------------------------------------------|----------------------------------------------------------------|------|--------------------|
-| `sensor.total_solar_production`                 | Total solar power production.                                  | W/h  | :white_check_mark: |
-| `sensor.total_grid_with_battery_consumption`    | Total power consumption from the grid with virtual battery.    | W/h  | :white_check_mark: |
-| `sensor.total_grid_without_battery_consumption` | Total power consumption from the grid without virtual battery. | W/h  | :white_check_mark: |
-| `sensor.total_autonomy_rate`                    | Autonomy rate.                                                 | %    | :white_check_mark: |
-| `sensor.total_self_conso`                       | Self consumption.                                              | %    | :white_check_mark: |
-| `sensor.total_msb_charge`                       | My Smart Battery Charge.                                       | W/h  | :white_check_mark: |
-| `sensor.total_msb_discharge`                    | My Smart Battery Discharge.                                    | W/h  | :white_check_mark: |
-| `sensor.battery_state`                          | Current battery state.                                         | kW   | :white_check_mark: |
-| `sensor.total_green_energy`                     | Total power consumned (from the production) by you home.       | W/h  | :white_check_mark: |
-| `sensor.grid_returned_energy`                   | Total power returned to the grid.                              | W/h  | :white_check_mark: |
-| `switch.master_relay`                           | Master relay switch.                                           | N/A  | :white_check_mark: |
+## Provided Entities
+
+### Sensors
+
+| Entity ID                                       | Description                                         | Unit | State Class        |
+| ----------------------------------------------- | --------------------------------------------------- | ---- | ------------------ |
+| `sensor.total_solar_production`                 | Cumulative energy produced by solar panels          | Wh   | `total_increasing` |
+| `sensor.total_grid_consumption`                 | Grid energy drawn (accounting for virtual battery)  | Wh   | `total_increasing` |
+| `sensor.total_grid_without_battery_consumption` | Grid energy drawn (excluding virtual battery)       | Wh   | `total_increasing` |
+| `sensor.total_autonomy_rate`                    | % of consumption covered by solar + battery         | %    | `measurement`      |
+| `sensor.total_self_conso`                       | % of solar production consumed locally              | %    | `measurement`      |
+| `sensor.total_msb_charge`                       | Cumulative energy charged into the Smart Battery    | Wh   | `total_increasing` |
+| `sensor.total_msb_discharge`                    | Cumulative energy discharged from the Smart Battery | Wh   | `total_increasing` |
+| `sensor.total_green_energy`                     | Solar energy consumed directly by your home         | Wh   | `total_increasing` |
+| `sensor.battery_state`                          | Current energy stored in the Smart Battery          | kWh  | `measurement`      |
+| `sensor.grid_returned_energy`                   | Solar energy exported back to the grid              | Wh   | `total_increasing` |
+
+### Switches
+
+| Entity ID             | Description                                    | Notes                                        |
+| --------------------- | ---------------------------------------------- | -------------------------------------------- |
+| `switch.master_relay` | Controls the master relay on your installation | Only available when a relay device is paired |
 
 ## Installation
 
@@ -47,26 +58,49 @@ _Integration to integrate with [MyLight Systems][mylight_systems]._
 
 ## Configuration is done in the UI
 
+## Architecture
+
+See [ARCHITECTURE.md](ARCHITECTURE.md) for the full component diagram and data flow.
+
+## Troubleshooting
+
+### "Relay switch is missing"
+
+The `switch.master_relay` entity is only created when a relay device (`sw` type) is paired to your installation. If you do not have a relay, this entity will not appear.
+
+### "Sensor values are stuck / not updating"
+
+The coordinator polls the API every 15 minutes. If values stop updating:
+
+1. Open **Settings → Devices & Services → MyLight Systems** and check for an error banner.
+2. Enable debug logging and check the Home Assistant logs:
+
+```yaml
+# configuration.yaml
+logger:
+  default: warning
+  logs:
+    custom_components.mylight_systems: debug
+```
+
+3. Look for `CommunicationError` or `UpdateFailed` entries — these indicate a network issue or an API change.
+
+### "Authentication failed" after a password change
+
+If you change your MyLight password externally, the integration will show an authentication error. Go to **Settings → Devices & Services → MyLight Systems** and use the **Re-authenticate** option to enter your new credentials.
+
 ## Contributions are welcome!
 
 If you want to contribute to this please read the [Contribution guidelines](CONTRIBUTING.md)
 
-***
+---
 
 [mylight_systems]: https://www.mylight-systems.com/
-
 [commits-shield]: https://img.shields.io/github/commit-activity/y/acesyde/hassio_mylight_integration.svg?style=for-the-badge
-
 [commits]: https://github.com/acesyde/hassio_mylight_integration/commits/main
-
 [hacs]: https://github.com/hacs/integration
-
 [hacsbadge]: https://img.shields.io/badge/HACS-Custom-orange.svg?style=for-the-badge
-
 [license-shield]: https://img.shields.io/github/license/acesyde/hassio_mylight_integration.svg?style=for-the-badge
-
 [maintenance-shield]: https://img.shields.io/badge/maintainer-Pierre%20Emmanuel%20Mercier%20%40acesyde-blue.svg?style=for-the-badge
-
 [releases-shield]: https://img.shields.io/github/release/acesyde/hassio_mylight_integration.svg?style=for-the-badge
-
 [releases]: https://github.com/acesyde/hassio_mylight_integration/releases

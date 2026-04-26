@@ -30,5 +30,46 @@
       "reauth_successful": "Reauthentication successful",
       "reconfigure_successful": "Password updated successfully"
     }
+  },
+  "issues": {
+    "auth_failed": {
+      "title": "Authentication failed for {entry_title}",
+      "fix_flow": {
+        "step": {
+          "confirm": {
+            "title": "Re-authenticate {entry_title}",
+            "description": "Confirm to open the re-authentication flow for this MyLight Systems entry."
+          }
+        }
+      }
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "description": "Adjust integration settings.",
+        "data": {
+          "scan_interval": "Update interval (minutes)"
+        }
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "total_solar_production": { "name": "Solar production" },
+      "total_grid_consumption": { "name": "Grid consumption (with virtual battery)" },
+      "total_grid_without_battery_consumption": { "name": "Grid consumption (without virtual battery)" },
+      "total_autonomy_rate": { "name": "Autonomy rate" },
+      "total_self_conso": { "name": "Self-consumption rate" },
+      "total_msb_charge": { "name": "Battery charge" },
+      "total_msb_discharge": { "name": "Battery discharge" },
+      "total_green_energy": { "name": "Green energy (direct solar)" },
+      "battery_state": { "name": "Battery energy stored" },
+      "grid_returned_energy": { "name": "Grid returned energy" },
+      "water_heater_energy": { "name": "Water heater energy" }
+    },
+    "switch": {
+      "master_relay": { "name": "Master relay" }
+    }
   }
 }

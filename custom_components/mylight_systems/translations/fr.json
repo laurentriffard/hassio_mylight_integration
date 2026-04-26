@@ -30,5 +30,46 @@
       "reauth_successful": "Réauthentification réussie",
       "reconfigure_successful": "Mot de passe mis à jour avec succès"
     }
+  },
+  "issues": {
+    "auth_failed": {
+      "title": "Échec d'authentification pour {entry_title}",
+      "fix_flow": {
+        "step": {
+          "confirm": {
+            "title": "Réauthentifier {entry_title}",
+            "description": "Confirmez pour ouvrir le flux de réauthentification de cette entrée MyLight Systems."
+          }
+        }
+      }
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "description": "Ajustez les paramètres de l'intégration.",
+        "data": {
+          "scan_interval": "Intervalle de mise à jour (minutes)"
+        }
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "total_solar_production": { "name": "Production solaire" },
+      "total_grid_consumption": { "name": "Consommation réseau (avec batterie virtuelle)" },
+      "total_grid_without_battery_consumption": { "name": "Consommation réseau (sans batterie virtuelle)" },
+      "total_autonomy_rate": { "name": "Taux d'autonomie" },
+      "total_self_conso": { "name": "Taux d'autoconsommation" },
+      "total_msb_charge": { "name": "Charge batterie" },
+      "total_msb_discharge": { "name": "Décharge batterie" },
+      "total_green_energy": { "name": "Énergie verte (solaire direct)" },
+      "battery_state": { "name": "Énergie stockée en batterie" },
+      "grid_returned_energy": { "name": "Énergie réinjectée au réseau" },
+      "water_heater_energy": { "name": "Énergie chauffe-eau" }
+    },
+    "switch": {
+      "master_relay": { "name": "Relais principal" }
+    }
   }
 }

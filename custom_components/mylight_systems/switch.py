@@ -7,12 +7,12 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from . import MyLightConfigEntry
 from .api.exceptions import MyLightSystemsError
-from .const import CONF_MASTER_RELAY_ID, DOMAIN, LOGGER
+from .const import CONF_MASTER_RELAY_ID, LOGGER
 from .coordinator import MyLightSystemsDataUpdateCoordinator
 from .entity import IntegrationMyLightSystemsEntity
 
 
-@dataclass(kw_only=True)
+@dataclass(frozen=True, kw_only=True)
 class MyLightSystemsSwitchEntityDescription(SwitchEntityDescription):
     """Describes MyLight Systems switch entity."""
 
@@ -23,7 +23,7 @@ class MyLightSystemsSwitchEntityDescription(SwitchEntityDescription):
 
 master_relay_switch = MyLightSystemsSwitchEntityDescription(
     key="master_relay",
-    name="Master relay",
+    translation_key="master_relay",
     is_on_fn=lambda coordinator: coordinator.master_relay_is_on(),
     turn_on_fn=lambda coordinator: coordinator.turn_on_master_relay,
     turn_off_fn=lambda coordinator: coordinator.turn_off_master_relay,
@@ -50,6 +50,8 @@ async def async_setup_entry(
 class MyLightSystemsSwitch(IntegrationMyLightSystemsEntity, SwitchEntity):
     """Defines a MyLight Systems switch."""
 
+    entity_description: MyLightSystemsSwitchEntityDescription
+
     def __init__(
         self,
         entry_id: str,
@@ -58,7 +60,6 @@ class MyLightSystemsSwitch(IntegrationMyLightSystemsEntity, SwitchEntity):
     ) -> None:
         """Initialize MyLight Systems switch."""
         super().__init__(coordinator)
-        self.entity_id = f"{DOMAIN}.{entity_description.key}"
         self._attr_unique_id = f"{entry_id}_{entity_description.key}"
         self.entity_description: MyLightSystemsSwitchEntityDescription = entity_description
 
@@ -73,6 +74,7 @@ class MyLightSystemsSwitch(IntegrationMyLightSystemsEntity, SwitchEntity):
             await self.entity_description.turn_off_fn(self.coordinator)()
             await self.coordinator.async_request_refresh()
             self._attr_available = True
+            LOGGER.info("Switch %s turned off", self.entity_id)
         except MyLightSystemsError:
             LOGGER.error("An error occurred while turning off MyLight Systems switch")
             self._attr_available = False
@@ -83,6 +85,7 @@ class MyLightSystemsSwitch(IntegrationMyLightSystemsEntity, SwitchEntity):
             await self.entity_description.turn_on_fn(self.coordinator)()
             await self.coordinator.async_request_refresh()
             self._attr_available = True
+            LOGGER.info("Switch %s turned on", self.entity_id)
         except MyLightSystemsError:
             LOGGER.error("An error occurred while turning on MyLight Systems switch")
             self._attr_available = False

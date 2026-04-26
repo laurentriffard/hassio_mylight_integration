@@ -10,9 +10,12 @@ LOGGER: Logger = getLogger(__package__)
 NAME = "MyLight Systems"
 DOMAIN = "mylight_systems"
 PLATFORMS = [Platform.SENSOR, Platform.SWITCH]
-VERSION = "0.3.0wh"
+VERSION = "0.7.0wh"
 ATTRIBUTION = "Data provided by https://www.mylight-systems.com/"
-SCAN_INTERVAL_IN_MINUTES = 5
+DEFAULT_SCAN_INTERVAL_IN_MINUTES = 15
+MIN_SCAN_INTERVAL_IN_MINUTES = 5
+MAX_SCAN_INTERVAL_IN_MINUTES = 60
+CONF_SCAN_INTERVAL = "scan_interval"
 
 # Configuration
 CONF_VIRTUAL_DEVICE_ID = "virtual_device_id"
