@@ -108,8 +108,9 @@ class MyLightSystemsDataUpdateCoordinator(DataUpdateCoordinator[MyLightSystemsCo
             if master_relay_id is not None:
                 coroutines.append(self.client.async_get_relay_state(auth_token, master_relay_id))
             if water_heater_id is not None:
-                ## should we use measure_grouping instead
-                coroutines.append(self.client.async_get_measures_total(auth_token, grid_type, water_heater_id))
+                coroutines.append(self.client.async_get_measures_grouping(
+                    auth_token, grid_type, water_heater_id, from_date=today, to_date=tomorrow
+                ))
 
             results = await asyncio.gather(*coroutines)
             energy_result = results[0]
@@ -117,7 +118,7 @@ class MyLightSystemsDataUpdateCoordinator(DataUpdateCoordinator[MyLightSystemsCo
             battery_state = results[2]
             master_relay_state = results[3] if master_relay_id is not None else None
             ## can we have a water heater without a master relay ?
-            water_heater_result = results[4] if water_heater_id is not None else None 
+            water_heater_result = results[4] if water_heater_id is not None else None
 
             data = MyLightSystemsCoordinatorData(
                 produced_energy=self.find_measure_by_type(energy_result, "produced_energy"),
