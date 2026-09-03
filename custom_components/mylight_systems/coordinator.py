@@ -133,6 +133,7 @@ class MyLightSystemsDataUpdateCoordinator(DataUpdateCoordinator[MyLightSystemsCo
                 master_relay_state=master_relay_state,
                 ## LR
                 water_heater_energy=self.find_measure_by_type(water_heater_result, "energy"),
+                #water_heater_energy=self.find_measure_by_type(total_result, "water_heater_energy"),
             )
 
             self._data = data
