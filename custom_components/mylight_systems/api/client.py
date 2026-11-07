@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import math
 import socket
 from datetime import date, timedelta
 from typing import Any
@@ -22,6 +23,8 @@ from .const import (
     ERR_SWITCH_NOT_ALLOWED,
     ERR_UNDEFINED_EMAIL,
     ERR_UNDEFINED_PASSWORD,
+    GRID_METER_TYPE,
+    GRID_METER_TYPE_ID,
     MEASURES_GROUPING_URL,
     MEASURES_TOTAL_URL,
     PROFILE_URL,
@@ -86,7 +89,7 @@ class MyLightApiClient:
 
                 _LOGGER.debug(
                     "Data retrieved from %s, status: %s",
-                    response.url,
+                    path,
                     response.status,
                 )
                 response.raise_for_status()
@@ -102,8 +105,9 @@ class MyLightApiClient:
             aiohttp.ClientError,
             socket.gaierror,
         ) as exception:
-            _LOGGER.debug("An error occured : %s", exception, exc_info=True)
-            raise CommunicationError() from exception
+            # Request URLs and exception messages can contain passwords or auth tokens.
+            _LOGGER.debug("API request failed: %s", type(exception).__name__)
+            raise CommunicationError() from None
 
     async def async_raw_request(
         self,
@@ -161,7 +165,7 @@ class MyLightApiClient:
         if raw_capacity not in (None, ""):
             try:
                 electric_power_capacity = float(raw_capacity)
-            except (TypeError, ValueError):
+            except TypeError, ValueError:
                 electric_power_capacity = None
 
         return UserProfile(response["id"], grid_type, electric_power_capacity)
@@ -181,8 +185,11 @@ class MyLightApiClient:
         _validate_response(response, "devices")
         model = InstallationDevices()
         devices = response["devices"]
+        grid_meter_ids: list[str] = []
 
         for device in devices:
+            if device["type"] == GRID_METER_TYPE and device.get("deviceTypeId") == GRID_METER_TYPE_ID:
+                grid_meter_ids.append(device["id"])
             if device["type"] == "vrt":
                 model.virtual_device_id = device["id"]
             if device["type"] == "bat":
@@ -194,6 +201,11 @@ class MyLightApiClient:
                 model.water_heater_id = device["id"]                    
             if device["type"] == "sw":
                 model.master_relay_id = device["id"]
+
+        # Zero or several meters: expose nothing rather than guess or sum.
+        if len(grid_meter_ids) == 1:
+            model.grid_meter_id = grid_meter_ids[0]
+
         return model
 
     async def async_get_measures_total(self, auth_token: str, phase: str, device_id: str) -> list[Measure]:
@@ -333,6 +345,38 @@ class MyLightApiClient:
                         return measure
 
         return measure
+
+    async def async_get_grid_power(self, auth_token: str, meter_id: str) -> Measure | None:
+        """Get the instantaneous grid power (watt, signed: positive imports, negative exports)."""
+        response: StatesResponseSchema = await self._execute_request(
+            "get", STATES_URL, params={"authToken": auth_token}
+        )
+
+        if response["status"] == "error":
+            if response.get("error") == ERR_NOT_AUTHORIZED:
+                raise UnauthorizedError()
+
+        _validate_response(response, "deviceStates")
+
+        # shortcut: no freshness/timestamp check, a stale reading is exposed as is; add one if the API serves stale values.
+        for device in response["deviceStates"]:
+            if device["deviceId"] != meter_id:
+                continue
+            for state in device.get("sensorStates") or []:
+                measure = state.get("measure") or {}
+                if measure.get("type") != "electric_power":
+                    continue
+                value = measure.get("value")
+                if (
+                    measure.get("unit") != "watt"
+                    or isinstance(value, bool)
+                    or not isinstance(value, (int, float))
+                    or not math.isfinite(value)
+                ):
+                    return None
+                return Measure(measure["type"], float(value), measure["unit"])
+
+        return None
 
     async def async_turn_off(self, auth_token: str, relay_id: str) -> str:
         """Turn off the switch."""

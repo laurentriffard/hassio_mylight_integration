@@ -6,7 +6,6 @@ import os
 import aiohttp
 import pytest
 import pytest_asyncio
-from aioresponses import aioresponses
 
 from custom_components.mylight_systems.api.client import (
     DEFAULT_BASE_URL,
@@ -14,6 +13,8 @@ from custom_components.mylight_systems.api.client import (
     MyLightApiClient,
 )
 from custom_components.mylight_systems.api.exceptions import MyLightSystemsError, UnauthorizedError
+
+from . import mock_get
 
 
 @pytest_asyncio.fixture
@@ -50,7 +51,7 @@ def valid_response_fixture():
 
 @pytest.mark.asyncio
 async def test_get_devices__should_raise_unauthorized_exception_when_invalid_token(
-    api_client, unauthorized_response_fixture
+    api_client, aresponses, unauthorized_response_fixture
 ):
     """Test with invalid token should raise UnauthorizedException."""
     # Given
@@ -58,59 +59,88 @@ async def test_get_devices__should_raise_unauthorized_exception_when_invalid_tok
     url = DEFAULT_BASE_URL + DEVICES_URL + f"?authToken={token}"
 
     # When / Then
-    with aioresponses() as session_mock:
-        session_mock.get(
-            url,
-            status=200,
-            payload=unauthorized_response_fixture,
-        )
+    mock_get(aresponses, url, unauthorized_response_fixture)
 
-        with pytest.raises(Exception) as exc_info:
-            await api_client.async_get_devices(token)
+    with pytest.raises(Exception) as exc_info:
+        await api_client.async_get_devices(token)
 
     assert UnauthorizedError == exc_info.type
 
 
 @pytest.mark.asyncio
-async def test_get_devices__should_raise_mylight_error_when_devices_key_missing(api_client):
+async def test_get_devices__should_raise_mylight_error_when_devices_key_missing(api_client, aresponses):
     """Test with response missing 'devices' key should raise MyLightSystemsError."""
     # Given
     token = "abcdef"  # noqa: S105
     url = DEFAULT_BASE_URL + DEVICES_URL + f"?authToken={token}"
 
     # When / Then
-    with aioresponses() as session_mock:
-        session_mock.get(
-            url,
-            status=200,
-            payload={"status": "ok"},
-        )
+    mock_get(aresponses, url, {"status": "ok"})
 
-        with pytest.raises(Exception) as exc_info:
-            await api_client.async_get_devices(token)
+    with pytest.raises(Exception) as exc_info:
+        await api_client.async_get_devices(token)
 
     assert MyLightSystemsError == exc_info.type
 
 
 @pytest.mark.asyncio
-async def test_get_devices__should_return_device_data_when_valid_token(api_client, valid_response_fixture):
+async def test_get_devices__should_return_device_data_when_valid_token(api_client, aresponses, valid_response_fixture):
     """Test with valid token should return device data."""
     # Given
     token = "abcdef"  # noqa: S105
     url = DEFAULT_BASE_URL + DEVICES_URL + f"?authToken={token}"
 
     # When
-    with aioresponses() as session_mock:
-        session_mock.get(
-            url,
-            status=200,
-            payload=valid_response_fixture,
-        )
+    mock_get(aresponses, url, valid_response_fixture)
 
-        response = await api_client.async_get_devices(token)
+    response = await api_client.async_get_devices(token)
 
     # Then
     assert "4tGrXr2CViF8chJEd" == response.master_id
     assert 300 == response.master_report_period
     assert "qVGSJ45vkeqvrHy6g" == response.virtual_device_id
     assert "ZEdtSVQKto8T53RWa_msb" == response.virtual_battery_id
+
+
+def _devices_payload(*devices):
+    return {"status": "ok", "devices": list(devices)}
+
+
+METER = {"id": "meter-1", "type": "cmp", "deviceTypeId": "asoka_electric_counter"}
+
+
+@pytest.mark.asyncio
+async def test_get_devices__should_return_grid_meter_id_when_single_meter(api_client, aresponses):
+    """A single cmp/asoka_electric_counter device is the grid meter."""
+    token = "abcdef"  # noqa: S105
+    other = {"id": "heater", "type": "cmp", "deviceTypeId": "water_heater"}
+    mock_get(aresponses, DEFAULT_BASE_URL + DEVICES_URL + f"?authToken={token}", _devices_payload(other, METER))
+
+    response = await api_client.async_get_devices(token)
+
+    assert "meter-1" == response.grid_meter_id
+
+
+@pytest.mark.asyncio
+async def test_get_devices__should_not_return_grid_meter_id_when_no_meter(
+    api_client, aresponses, valid_response_fixture
+):
+    """No matching device means no grid meter."""
+    token = "abcdef"  # noqa: S105
+    mock_get(aresponses, DEFAULT_BASE_URL + DEVICES_URL + f"?authToken={token}", valid_response_fixture)
+
+    response = await api_client.async_get_devices(token)
+
+    assert response.grid_meter_id is None
+
+
+@pytest.mark.asyncio
+async def test_get_devices__should_not_return_grid_meter_id_when_ambiguous(api_client, aresponses):
+    """Several matching devices are never summed or guessed."""
+    token = "abcdef"  # noqa: S105
+    second = {**METER, "id": "meter-2"}
+    mock_get(aresponses, DEFAULT_BASE_URL + DEVICES_URL + f"?authToken={token}", _devices_payload(METER, second))
+
+    response = await api_client.async_get_devices(token)
+
+    assert response.grid_meter_id is None

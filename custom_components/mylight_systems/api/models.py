@@ -28,6 +28,7 @@ class InstallationDevices:
     virtual_device_id: str = ""
     virtual_battery_id: str = ""
     master_relay_id: str | None = None
+    grid_meter_id: str | None = None
     water_heater_device_id: str = None
 
     def __setattr__(self, name: str, value: object) -> None:

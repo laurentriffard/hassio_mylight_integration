@@ -6,7 +6,7 @@
 [![GitHub Activity][commits-shield]][commits]
 [![License][license-shield]](LICENSE)
 
-[![hacs][hacsbadge]][hacs]
+[![marketplace][marketplacebadge]][marketplace]
 ![Project Maintenance][maintenance-shield]
 
 _Integración para conectar con [MyLight Systems][mylight_systems]._
@@ -33,6 +33,11 @@ _Integración para conectar con [MyLight Systems][mylight_systems]._
 | `sensor.total_green_energy`                     | Energía solar consumida directamente por su hogar      | Wh     | `total_increasing` |
 | `sensor.battery_state`                          | Energía almacenada actualmente en la Smart Battery     | kWh    | `measurement`      |
 | `sensor.grid_returned_energy`                   | Energía solar exportada a la red                       | Wh     | `total_increasing` |
+| `sensor.grid_power`                             | Potencia instantánea de red (positiva: importación, negativa: exportación) | W | `measurement` |
+| `sensor.grid_import_power`                      | Potencia importada de la red | W | `measurement` |
+| `sensor.grid_export_power`                      | Potencia exportada a la red | W | `measurement` |
+
+> Solo se crean si se detecta un único contador de red.
 
 ### Interruptores
 
@@ -42,9 +47,17 @@ _Integración para conectar con [MyLight Systems][mylight_systems]._
 
 ## Instalación
 
-## Automática
+## Marketplace de Home Assistant (2026.11+)
 
-[![Abra su instancia de Home Assistant y abra un repositorio en el Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=acesyde&repository=hassio_mylight_integration&category=integration)
+1. En Home Assistant, vaya a **Ajustes → Marketplace**.
+2. Elija **Add from link**, pegue `https://github.com/acesyde/hassio_mylight_integration` y conecte su cuenta de GitHub si se le solicita.
+3. Instale **MyLight Systems** y reinicie Home Assistant.
+
+O haga clic en este botón:
+
+[![Abra su instancia de Home Assistant y abra un repositorio en el Home Assistant Marketplace.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=acesyde&repository=hassio_mylight_integration&category=integration)
+
+> Desde 2026.11, HACS está integrado en Home Assistant como Marketplace. Las instalaciones existentes de HACS se migran automáticamente.
 
 ## Manual
 
@@ -98,8 +111,8 @@ Si desea contribuir, lea las [directrices de contribución](CONTRIBUTING.md).
 [mylight_systems]: https://www.mylight-systems.com/
 [commits-shield]: https://img.shields.io/github/commit-activity/y/acesyde/hassio_mylight_integration.svg?style=for-the-badge
 [commits]: https://github.com/acesyde/hassio_mylight_integration/commits/main
-[hacs]: https://github.com/hacs/integration
-[hacsbadge]: https://img.shields.io/badge/HACS-Custom-orange.svg?style=for-the-badge
+[marketplace]: https://www.home-assistant.io/integrations/marketplace/#custom-repositories
+[marketplacebadge]: https://img.shields.io/badge/Marketplace-Custom-orange.svg?style=for-the-badge
 [license-shield]: https://img.shields.io/github/license/acesyde/hassio_mylight_integration.svg?style=for-the-badge
 [maintenance-shield]: https://img.shields.io/badge/maintainer-Pierre%20Emmanuel%20Mercier%20%40acesyde-blue.svg?style=for-the-badge
 [releases-shield]: https://img.shields.io/github/release/acesyde/hassio_mylight_integration.svg?style=for-the-badge

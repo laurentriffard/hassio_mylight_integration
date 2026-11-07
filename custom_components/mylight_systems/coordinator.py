@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import asyncio
-from datetime import UTC, date, datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Any, NamedTuple
 
 from homeassistant.config_entries import ConfigEntry
@@ -15,6 +15,7 @@ from homeassistant.helpers.update_coordinator import (
     DataUpdateCoordinator,
     UpdateFailed,
 )
+from homeassistant.util import dt as dt_util
 
 from custom_components.mylight_systems.api.models import Measure
 
@@ -51,6 +52,7 @@ class MyLightSystemsCoordinatorData(NamedTuple):
     battery_state: Measure | None
     master_relay_state: str | None
     water_heater_energy: Measure | None
+    grid_power: Measure | None
 
 
 # https://developers.home-assistant.io/docs/integration_fetching_data#coordinated-single-api-poll-for-data-for-all-entities
@@ -70,6 +72,8 @@ class MyLightSystemsDataUpdateCoordinator(DataUpdateCoordinator[MyLightSystemsCo
         self.__auth_token: str | None = None
         self.__token_expiration: datetime | None = None
         self._auth_lock = asyncio.Lock()
+        self.grid_meter_id: str | None = None
+        self._grid_meter_discovered = False
         scan_interval = int(config_entry.options.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL_IN_MINUTES))
         super().__init__(
             hass=hass,
@@ -95,8 +99,12 @@ class MyLightSystemsDataUpdateCoordinator(DataUpdateCoordinator[MyLightSystemsCo
                 raise UpdateFailed("Authentication token is not set after login")
             auth_token: str = self.__auth_token
 
-            today = date.today().isoformat()
-            tomorrow = (date.today() + timedelta(days=1)).isoformat()
+            local_today = dt_util.now().date()
+            today = local_today.isoformat()
+            tomorrow = (local_today + timedelta(days=1)).isoformat()
+
+            if not self._grid_meter_discovered:
+                await self._async_discover_grid_meter(auth_token)
 
             coroutines: list[Any] = [
                 self.client.async_get_measures_grouping(
@@ -111,6 +119,7 @@ class MyLightSystemsDataUpdateCoordinator(DataUpdateCoordinator[MyLightSystemsCo
                 coroutines.append(self.client.async_get_measures_grouping(
                     auth_token, grid_type, water_heater_id, from_date=today, to_date=tomorrow
                 ))
+            coroutines.append(self._async_get_grid_power(auth_token))
 
             results = await asyncio.gather(*coroutines)
             energy_result = results[0]
@@ -119,6 +128,7 @@ class MyLightSystemsDataUpdateCoordinator(DataUpdateCoordinator[MyLightSystemsCo
             master_relay_state = results[3] if master_relay_id is not None else None
             ## can we have a water heater without a master relay ?
             water_heater_result = results[4] if water_heater_id is not None else None
+            grid_power = results[-1]
 
             data = MyLightSystemsCoordinatorData(
                 produced_energy=self.find_measure_by_type(energy_result, "produced_energy"),
@@ -134,6 +144,7 @@ class MyLightSystemsDataUpdateCoordinator(DataUpdateCoordinator[MyLightSystemsCo
                 ## LR
                 water_heater_energy=self.find_measure_by_type(water_heater_result, "energy"),
                 #water_heater_energy=self.find_measure_by_type(total_result, "water_heater_energy"),
+                grid_power=grid_power,
             )
 
             self._data = data
@@ -164,6 +175,30 @@ class MyLightSystemsDataUpdateCoordinator(DataUpdateCoordinator[MyLightSystemsCo
             raise ConfigEntryAuthFailed(exception) from exception
         except MyLightSystemsError as exception:
             raise UpdateFailed(exception) from exception
+
+    async def _async_discover_grid_meter(self, auth_token: str) -> None:
+        """Resolve the grid meter id once; the optional sensors must not break the update."""
+        try:
+            devices = await self.client.async_get_devices(auth_token)
+        except UnauthorizedError:
+            raise
+        except MyLightSystemsError:
+            LOGGER.debug("Grid meter discovery failed, will retry on next refresh")
+            return
+        self.grid_meter_id = devices.grid_meter_id
+        self._grid_meter_discovered = True
+
+    async def _async_get_grid_power(self, auth_token: str) -> Measure | None:
+        """Read the optional grid power; only an auth failure may fail the update."""
+        if self.grid_meter_id is None:
+            return None
+        try:
+            return await self.client.async_get_grid_power(auth_token, self.grid_meter_id)
+        except UnauthorizedError:
+            raise
+        except MyLightSystemsError:
+            LOGGER.debug("Grid power read failed")
+            return None
 
     def _token_needs_refresh(self) -> bool:
         """Return True if the auth token is missing or expires within 60 seconds."""
