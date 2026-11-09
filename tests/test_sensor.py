@@ -9,8 +9,10 @@ from homeassistant.const import UnitOfPower
 from custom_components.mylight_systems.api.models import Measure
 from custom_components.mylight_systems.coordinator import MyLightSystemsCoordinatorData
 from custom_components.mylight_systems.sensor import (
+    COUNTER_POWER_SENSORS,
     GRID_POWER_SENSORS,
     MYLIGHT_SENSORS,
+    VIRTUAL_BATTERY_POWER_SENSORS,
     MyLightElectricPowerCapacitySensor,
     _calculate_grid_returned_energy,
     async_setup_entry,
@@ -268,11 +270,27 @@ async def test_setup_entry__should_create_grid_power_sensors_only_when_meter_fou
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize(("has_virtual_battery", "expected"), [(True, 2), (False, 0)])
-async def test_setup_entry__should_create_virtual_battery_power_sensors_only_with_virtual_battery(
-    has_virtual_battery, expected
+@pytest.mark.parametrize(
+    ("has_virtual_battery", "present", "absent", "grid_net_name"),
+    [
+        (
+            True,
+            {"msb_charge_power", "msb_discharge_power", "msb_net_power", "grid_billed_power", "grid_net_power"},
+            {"grid_returned_power"},
+            "grid_billed_net_power",
+        ),
+        (
+            False,
+            {"grid_returned_power", "grid_net_power"},
+            {"msb_charge_power", "msb_discharge_power", "msb_net_power", "grid_billed_power"},
+            "grid_net_power",
+        ),
+    ],
+)
+async def test_setup_entry__should_create_power_sensors_matching_the_virtual_battery(
+    has_virtual_battery, present, absent, grid_net_name
 ):
-    """The discharge and billed import power sensors exist only for virtual battery installations."""
+    """Battery powers only with a virtual battery; the always-zero return only without; grid net named accordingly."""
     entry = MagicMock()
     entry.entry_id = "test_entry"
     entry.data = {}
@@ -282,6 +300,17 @@ async def test_setup_entry__should_create_virtual_battery_power_sensors_only_wit
 
     await async_setup_entry(MagicMock(), entry, add)
 
-    keys = {"msb_discharge_power", "grid_billed_power"}
-    created = [e for e in add.call_args.args[0] if e.entity_description.key in keys]
-    assert expected == len(created)
+    descriptions = {e.entity_description.key: e.entity_description for e in add.call_args.args[0]}
+    assert present | {"solar_power", "consumption_power"} <= descriptions.keys()
+    assert not absent & descriptions.keys()
+    assert grid_net_name == descriptions["grid_net_power"].translation_key
+
+
+@pytest.mark.parametrize("key", ["solar_power", "msb_net_power"])
+def test_counter_power_sensors__should_read_powers_and_be_unknown_without_them(none_data, key):
+    """Values come from the coordinator powers; missing means unknown, never 0."""
+    description = next(d for d in (*COUNTER_POWER_SENSORS, *VIRTUAL_BATTERY_POWER_SENSORS) if d.key == key)
+
+    assert description.value_fn(none_data) is None
+    assert -250.0 == description.value_fn(none_data._replace(powers={key: -250.0}))
+    assert UnitOfPower.WATT == description.native_unit_of_measurement

@@ -180,26 +180,33 @@ GRID_POWER_SENSORS: tuple[MyLightSensorEntityDescription, ...] = (
     ),
 )
 
-# Created only for installations with a virtual battery; averaged over the refresh interval.
+
+def _power_sensor(key: str, translation_key: str | None = None) -> MyLightSensorEntityDescription:
+    """Average power over the refresh interval, derived from the energy counters."""
+    return MyLightSensorEntityDescription(
+        key=key,
+        translation_key=translation_key or key,
+        native_unit_of_measurement=UnitOfPower.WATT,
+        state_class=SensorStateClass.MEASUREMENT,
+        device_class=SensorDeviceClass.POWER,
+        suggested_display_precision=0,
+        value_fn=lambda data: (data.powers or {}).get(key),
+    )
+
+
+COUNTER_POWER_SENSORS: tuple[MyLightSensorEntityDescription, ...] = tuple(
+    _power_sensor(key) for key in ("solar_power", "consumption_power")
+)
+
+# Created only without a virtual battery: with one, MyLight counts every export as a charge, so the return stays 0.
+NO_VIRTUAL_BATTERY_POWER_SENSORS: tuple[MyLightSensorEntityDescription, ...] = tuple(
+    _power_sensor(key) for key in ("grid_returned_power", "grid_net_power")
+)
+
+# Created only for installations with a virtual battery; their grid net power is the billed import.
 VIRTUAL_BATTERY_POWER_SENSORS: tuple[MyLightSensorEntityDescription, ...] = (
-    MyLightSensorEntityDescription(
-        key="msb_discharge_power",
-        translation_key="msb_discharge_power",
-        native_unit_of_measurement=UnitOfPower.WATT,
-        state_class=SensorStateClass.MEASUREMENT,
-        device_class=SensorDeviceClass.POWER,
-        suggested_display_precision=0,
-        value_fn=lambda data: data.msb_discharge_power,
-    ),
-    MyLightSensorEntityDescription(
-        key="grid_billed_power",
-        translation_key="grid_billed_power",
-        native_unit_of_measurement=UnitOfPower.WATT,
-        state_class=SensorStateClass.MEASUREMENT,
-        device_class=SensorDeviceClass.POWER,
-        suggested_display_precision=0,
-        value_fn=lambda data: data.grid_billed_power,
-    ),
+    *(_power_sensor(key) for key in ("msb_charge_power", "msb_discharge_power", "msb_net_power", "grid_billed_power")),
+    _power_sensor("grid_net_power", translation_key="grid_billed_net_power"),
 )
 
 
@@ -214,7 +221,7 @@ async def async_setup_entry(
             coordinator=coordinator,
             entity_description=entity_description,
         )
-        for entity_description in MYLIGHT_SENSORS
+        for entity_description in (*MYLIGHT_SENSORS, *COUNTER_POWER_SENSORS)
     ]
 
     if coordinator.grid_meter_id is not None:
@@ -227,15 +234,16 @@ async def async_setup_entry(
             for entity_description in GRID_POWER_SENSORS
         )
 
-    if coordinator.has_virtual_battery:
-        entities.extend(
-            MyLightSystemsSensor(
-                entry_id=entry.entry_id,
-                coordinator=coordinator,
-                entity_description=entity_description,
-            )
-            for entity_description in VIRTUAL_BATTERY_POWER_SENSORS
+    entities.extend(
+        MyLightSystemsSensor(
+            entry_id=entry.entry_id,
+            coordinator=coordinator,
+            entity_description=entity_description,
         )
+        for entity_description in (
+            VIRTUAL_BATTERY_POWER_SENSORS if coordinator.has_virtual_battery else NO_VIRTUAL_BATTERY_POWER_SENSORS
+        )
+    )
 
     capacity = entry.data.get(CONF_ELECTRIC_POWER_CAPACITY)
     if capacity is not None:

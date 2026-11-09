@@ -34,20 +34,49 @@ _Integration to integrate with [MyLight Systems][mylight_systems]._
 | `sensor.battery_state`                          | Current energy stored in the Smart Battery          | kWh  | `measurement`      |
 | `sensor.grid_returned_energy`                   | Solar energy exported back to the grid              | Wh   | `total_increasing` |
 | `sensor.grid_power`                             | Instantaneous grid power (positive: import, negative: export) | W | `measurement` |
-| `sensor.grid_import_power`                      | Power drawn from the grid | W | `measurement` |
-| `sensor.grid_export_power`                      | Power exported to the grid | W | `measurement` |
-| `sensor.msb_discharge_power`                   | Power covered by the virtual battery | W | `measurement` |
-| `sensor.grid_billed_power`                     | Billed grid import power (virtual battery empty) | W | `measurement` |
+| `sensor.grid_import_power`                      | Power drawn from the grid (instantaneous) | W | `measurement` |
+| `sensor.grid_export_power`                      | Power exported to the grid (instantaneous) | W | `measurement` |
+| `sensor.solar_power`                            | Solar production power | W | `measurement` |
+| `sensor.consumption_power`                      | Home consumption power | W | `measurement` |
+| `sensor.grid_returned_power`                    | Power returned to the grid (without a virtual battery) | W | `measurement` |
+| `sensor.grid_net_power`                         | Grid net power (positive: import, negative: export). With a virtual battery: "Billed grid net power" | W | `measurement` |
+| `sensor.msb_charge_power`                       | Virtual battery charge power | W | `measurement` |
+| `sensor.msb_discharge_power`                    | Power covered by the virtual battery | W | `measurement` |
+| `sensor.msb_net_power`                          | Virtual battery net power (positive: discharge, negative: charge) | W | `measurement` |
+| `sensor.grid_billed_power`                      | Billed grid import power (virtual battery empty) | W | `measurement` |
 
-> `grid_power`, `grid_import_power`, `grid_export_power`: Only created when a single grid meter is detected. MyLight reports a 5-minute average: keep the default 5-minute update interval, otherwise readings are skipped.
+> `grid_power`, `grid_import_power`, `grid_export_power`: only created when a single grid meter is detected. Point reading taken from the meter at each update: it can differ from the interval average. For the Energy dashboard, prefer the computed powers below.
 >
-> `msb_discharge_power`, `grid_billed_power`: Available only when a virtual battery is detected. Averaged over the update interval (keep the default 5 minutes, which matches MyLight's measurement step: longer intervals smooth the curve) from the `total_msb_discharge` and `total_grid_without_battery_consumption` counters: use them as battery discharge and grid import power in the Energy dashboard. They have no value during the first interval after a startup (two readings are needed).
+> `solar_power`, `consumption_power`, `grid_net_power`, `grid_returned_power`: averages over the update interval, computed from the MyLight energy counters, so they match the kWh totals to the Wh. Keep the default 5-minute interval, MyLight's measurement step (longer intervals smooth the curve). No value during the first interval after a startup (two readings are needed). With a virtual battery, `grid_net_power` only counts the billed import.
+>
+> `msb_charge_power`, `msb_discharge_power`, `msb_net_power`, `grid_billed_power`: same computation, available only when a virtual battery is detected. `grid_returned_power` is then not created: MyLight counts every exported Wh as a charge, so the return is always 0. For the same reason `grid_net_power` (renamed "Billed grid net power") and `grid_billed_power` have the same value: the first is for the Energy dashboard single signed sensor mode, the second for the two-sensor mode.
 
 ### Switches
 
 | Entity ID             | Description                                    | Notes                                        |
 | --------------------- | ---------------------------------------------- | -------------------------------------------- |
 | `switch.master_relay` | Controls the master relay on your installation | Only available when a relay device is paired |
+
+## Configure the Energy dashboard
+
+In **Settings → Dashboards → Energy**, set each source's energy counters, then, for power, **a single signed sensor** (standard mode: positive when energy flows into the home, negative when it flows out). Home Assistant then does not need to create its own net power sensors, and the "Power sources" graph matches the kWh totals exactly.
+
+Actual entity IDs include your device name: search the sensors by their display name, given in quotes below (in English), without adding anything.
+
+| Source | Energy | Power (single sensor) |
+|---|---|---|
+| Grid, with a virtual battery | Consumption: `total_grid_without_battery_consumption`. Return: `grid_returned_energy` | `grid_net_power`: "Billed grid net power" |
+| Grid, without a virtual battery | Consumption: `total_grid_consumption`. Return: `grid_returned_energy` | `grid_net_power`: "Grid net power" |
+| Solar | `total_solar_production` | `solar_power`: "Solar power" |
+| Battery (virtual battery only) | Discharge: `total_msb_discharge`. Charge: `total_msb_charge` | `msb_net_power`: "Virtual battery net power" |
+
+1. **Grid**: edit (or add) the grid source, pick the counters above, then in the power part the single-sensor mode with `grid_net_power`.
+2. **Solar**: edit (or add) the solar production with `total_solar_production` and the power `solar_power`.
+3. **Battery** (if you have a virtual battery): add a battery storage with `total_msb_discharge` (energy coming out of the battery) and `total_msb_charge` (energy going into the battery), then the power `msb_net_power` in single-sensor mode.
+
+> **Why not `total_grid_consumption` or `grid_power` with a virtual battery?** MyLight counts exported energy as a virtual battery charge and imports covered by your credit as a discharge: only the billed part is grid. The counters above follow that logic; `grid_power` measures the physical flow and would count the battery as grid.
+>
+> `consumption_power` is not needed here: Home Assistant computes consumption from the sources. Use it to display consumption elsewhere (cards, automations).
 
 ## Installation
 

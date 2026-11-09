@@ -34,20 +34,49 @@ _Intégration pour se connecter à [MyLight Systems][mylight_systems]._
 | `sensor.battery_state`                          | Énergie actuellement stockée dans la Smart Battery       | kWh   | `measurement`      |
 | `sensor.grid_returned_energy`                   | Énergie solaire réinjectée sur le réseau                 | Wh    | `total_increasing` |
 | `sensor.grid_power`                             | Puissance réseau instantanée (positive : soutirage, négative : injection) | W | `measurement` |
-| `sensor.grid_import_power`                      | Puissance soutirée du réseau | W | `measurement` |
-| `sensor.grid_export_power`                      | Puissance injectée sur le réseau | W | `measurement` |
-| `sensor.msb_discharge_power`                   | Puissance couverte par la batterie virtuelle | W | `measurement` |
-| `sensor.grid_billed_power`                     | Puissance soutirée facturée (batterie virtuelle vide) | W | `measurement` |
+| `sensor.grid_import_power`                      | Puissance soutirée du réseau (instantanée) | W | `measurement` |
+| `sensor.grid_export_power`                      | Puissance injectée sur le réseau (instantanée) | W | `measurement` |
+| `sensor.solar_power`                            | Puissance solaire produite | W | `measurement` |
+| `sensor.consumption_power`                      | Puissance consommée par le logement | W | `measurement` |
+| `sensor.grid_returned_power`                    | Puissance réinjectée sur le réseau (sans batterie virtuelle) | W | `measurement` |
+| `sensor.grid_net_power`                         | Puissance nette réseau (positive : soutirage, négative : réinjection). Avec batterie virtuelle : « Puissance nette réseau facturée » | W | `measurement` |
+| `sensor.msb_charge_power`                       | Puissance de charge de la batterie virtuelle | W | `measurement` |
+| `sensor.msb_discharge_power`                    | Puissance couverte par la batterie virtuelle | W | `measurement` |
+| `sensor.msb_net_power`                          | Puissance nette de la batterie virtuelle (positive : décharge, négative : charge) | W | `measurement` |
+| `sensor.grid_billed_power`                      | Puissance soutirée facturée (batterie virtuelle vide) | W | `measurement` |
 
-> `grid_power`, `grid_import_power`, `grid_export_power` : Disponibles uniquement si un compteur réseau unique est détecté. MyLight fournit une moyenne sur 5 minutes : gardez l'intervalle de mise à jour par défaut de 5 minutes, sinon des mesures sont sautées.
+> `grid_power`, `grid_import_power`, `grid_export_power` : disponibles uniquement si un compteur réseau unique est détecté. Valeur ponctuelle lue sur le compteur à chaque mise à jour : elle peut s'écarter de la moyenne de l'intervalle. Pour la vue Énergie, préférez les puissances calculées ci-dessous.
 >
-> `msb_discharge_power`, `grid_billed_power` : Disponibles uniquement si une batterie virtuelle est détectée. Moyenne sur l'intervalle de mise à jour (gardez l'intervalle par défaut de 5 minutes, celui des mesures MyLight : au-delà, la courbe est lissée), calculée à partir des compteurs `total_msb_discharge` et `total_grid_without_battery_consumption` : à utiliser comme puissance de décharge (batterie) et de soutirage (réseau) dans le tableau de bord Énergie. Ils n'ont pas de valeur pendant le premier intervalle après un démarrage (il faut deux relevés).
+> `solar_power`, `consumption_power`, `grid_net_power`, `grid_returned_power` : moyennes sur l'intervalle de mise à jour, calculées à partir des compteurs d'énergie MyLight, donc cohérentes au Wh près avec les totaux en kWh. Gardez l'intervalle par défaut de 5 minutes, celui des mesures MyLight (au-delà, la courbe est lissée). Pas de valeur pendant le premier intervalle après un démarrage (il faut deux relevés). Avec une batterie virtuelle, `grid_net_power` ne compte que le soutirage facturé.
+>
+> `msb_charge_power`, `msb_discharge_power`, `msb_net_power`, `grid_billed_power` : même calcul, disponibles uniquement si une batterie virtuelle est détectée. `grid_returned_power` n'est alors pas créé : MyLight compte toute l'énergie injectée comme une charge, la réinjection vaut toujours 0. Pour la même raison, `grid_net_power` (renommé « Puissance nette réseau facturée ») et `grid_billed_power` ont la même valeur : le premier sert au mode à un seul capteur signé de la vue Énergie, le second au mode à deux capteurs.
 
 ### Interrupteurs
 
 | ID d'entité           | Description                                        | Remarques                                     |
 | --------------------- | -------------------------------------------------- | --------------------------------------------- |
 | `switch.master_relay` | Contrôle le relais principal de votre installation | Disponible uniquement si un relais est couplé |
+
+## Configurer le tableau de bord Énergie
+
+Dans **Paramètres → Tableaux de bord → Énergie**, renseignez pour chaque source ses compteurs d'énergie, puis, pour la puissance, **un seul capteur signé** (mode standard : positif quand l'énergie entre dans le logement, négatif quand elle en sort). Home Assistant n'a alors pas besoin de créer ses propres capteurs de puissance nette, et le graphique « Sources de puissance » correspond exactement aux totaux en kWh.
+
+Les ID d'entité réels contiennent le nom de votre appareil : cherchez les capteurs par leur nom affiché, indiqué entre guillemets ci-dessous (en français), sans rien ajouter.
+
+| Source | Énergie | Puissance (un seul capteur) |
+|---|---|---|
+| Réseau, avec batterie virtuelle | Consommation : `total_grid_without_battery_consumption`. Retour : `grid_returned_energy` | `grid_net_power` : « Puissance nette réseau facturée » |
+| Réseau, sans batterie virtuelle | Consommation : `total_grid_consumption`. Retour : `grid_returned_energy` | `grid_net_power` : « Puissance nette réseau » |
+| Solaire | `total_solar_production` | `solar_power` : « Puissance solaire » |
+| Batterie (batterie virtuelle uniquement) | Décharge : `total_msb_discharge`. Charge : `total_msb_charge` | `msb_net_power` : « Puissance nette de la batterie virtuelle » |
+
+1. **Réseau** : modifiez (ou ajoutez) la source réseau, choisissez les compteurs ci-dessus, puis dans la partie puissance le mode à un seul capteur avec `grid_net_power`.
+2. **Solaire** : modifiez (ou ajoutez) la production solaire avec `total_solar_production` et la puissance `solar_power`.
+3. **Batterie** (si vous avez une batterie virtuelle) : ajoutez un système de stockage avec `total_msb_discharge` (énergie sortant de la batterie) et `total_msb_charge` (énergie entrant dans la batterie), puis la puissance `msb_net_power` en mode à un seul capteur.
+
+> **Pourquoi pas `total_grid_consumption` ni `grid_power` avec une batterie virtuelle ?** MyLight compte l'énergie injectée comme une charge de la batterie virtuelle et le soutirage couvert par votre crédit comme une décharge : seule la part facturée est du réseau. Les compteurs ci-dessus suivent cette logique ; `grid_power` mesure le flux physique et classerait la batterie en réseau.
+>
+> `consumption_power` n'est pas à renseigner : Home Assistant calcule la consommation à partir des sources. Il sert à l'afficher ailleurs (cartes, automatisations).
 
 ## Installation
 
